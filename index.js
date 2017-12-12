@@ -94,7 +94,7 @@ app.get('/auth/github/callback',
 //   res.redirect(process.env.NODE_ENV === 'development' ? LOCAL_REDIRECT_URL : PRODUCTION_REDIRECT_URL);
 // });
 app.use('/', (req, res) => {
-  res.sendStatus(200);
+  res.status(200).send('We Good');
 });
 
 app.use((req, res) => {
