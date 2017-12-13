@@ -17,7 +17,8 @@ const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
 const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
 const PRODUCTION_CALLBACK_URL = process.env.PRODUCTION_CALLBACK_URL;
 const LOCAL_CALLBACK_URL = process.env.LOCAL_CALLBACK_URL;
-const REDIRECT_URL = process.env.REDIRECT_URL;
+const LOCAL_REDIRECT_URL = process.env.LOCAL_REDIRECT_URL;
+const PRODUCTION_REDIRECT_URL = process.env.PRODUCTION_REDIRECT_URL;
 
 app.use(morgan('combined'));
 app.use('/', partials());
@@ -52,18 +53,20 @@ passport.deserializeUser((obj, done) => {
   done(null, obj);
 });
 
-passport.use(new GitHubStrategy({
-  clientID: process.env.GITHUB_CLIENT_ID,
-  clientSecret: process.env.GITHUB_CLIENT_SECRET,
-  callbackURL: process.env.NODE_ENV === 'development' ? process.env.LOCAL_CALLBACK_URL : process.env.PRODUCTION_CALLBACK_URL,
-},
-  ((accessToken, refreshToken, profile, done) => {
-    process.env.TKN = accessToken;
-    process.nextTick(() =>
-      done(null, profile),
-    );
-  }),
-));
+passport.use(
+  new GitHubStrategy(
+    {
+      clientID: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+      callbackURL:
+        process.env.NODE_ENV === 'development' ? LOCAL_CALLBACK_URL : PRODUCTION_CALLBACK_URL,
+    },
+    (accessToken, refreshToken, profile, done) => {
+      process.env.TKN = accessToken;
+      process.nextTick(() => done(null, profile));
+    },
+  ),
+);
 
 app.get(
   '/auth/github',
@@ -83,22 +86,28 @@ app.get(
       httpOnly: false,
       domain: process.env.DOMAIN_FOR_COOKIES || 'localhost',
     });
-    res.redirect(REDIRECT_URL);
+    res.redirect(
+      process.env.NODE_ENV === 'development' ? LOCAL_REDIRECT_URL : PRODUCTION_REDIRECT_URL,
+    );
   },
 );
-app.get('/logout', (req, res) => {
-  res.clearCookie('githubAccessToken', { domain: process.env.DOMAIN_FOR_COOKIES || 'localhost' });
-  res.clearCookie('githubUserName', { domain: process.env.DOMAIN_FOR_COOKIES || 'localhost' });
-  res.redirect(REDIRECT_URL);
-});
+
+// Proof of Concept with server-side logout route however:
+// handling this client side allows for app state to be managed on the clien-side.gs
+//  which prevents a page redirect on logout, delivering a better UX
+
+// app.get('/logout', (req, res) => {
+//   res.clearCookie('githubAccessToken', { domain: process.env.DOMAIN_FOR_COOKIES || 'localhost' });
+//   res.clearCookie('githubUserName', { domain: process.env.DOMAIN_FOR_COOKIES || 'localhost' });
+//   res.redirect(process.env.NODE_ENV === 'development' ? LOCAL_REDIRECT_URL : PRODUCTION_REDIRECT_URL);
+// });
 app.use('/', (req, res) => {
-  res.sendStatus(200);
+  res.status(200).send('We Good');
 });
 
 app.use((req, res) => {
   res.sendStatus(404);
 });
-
 if (!module.parent) {
   app.listen(PORT, () => {
     /* eslint-disable no-console */

@@ -1,3 +1,4 @@
 node_modules
 .env
 codeship.aes
+.DS_Store
