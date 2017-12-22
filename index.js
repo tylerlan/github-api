@@ -12,13 +12,22 @@ const morgan = require('morgan');
 
 const app = express();
 /* eslint-disable no-unused-vars */
+const envIsDev = process.env.NODE_ENV === 'development';
 const PORT = process.env.PORT || 8000;
-const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
-const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
-const PRODUCTION_CALLBACK_URL = process.env.PRODUCTION_CALLBACK_URL;
-const LOCAL_CALLBACK_URL = process.env.LOCAL_CALLBACK_URL;
-const LOCAL_REDIRECT_URL = process.env.LOCAL_REDIRECT_URL;
-const PRODUCTION_REDIRECT_URL = process.env.PRODUCTION_REDIRECT_URL;
+const GITHUB_CLIENT_ID = envIsDev
+  ? process.env.LOCAL_GITHUB_CLIENT_ID
+  : process.env.PRODUCTION_GITHUB_CLIENT_ID;
+const GITHUB_CLIENT_SECRET = envIsDev
+  ? process.env.LOCAL_GITHUB_CLIENT_SECRET
+  : process.env.PRODUCTION_GITHUB_CLIENT_SECRET;
+//
+const API_BASE_URL = envIsDev
+  ? process.env.LOCAL_API_BASE_URL
+  : process.env.PRODUCTION_API_BASE_URL;
+const REDIRECT_URL = envIsDev
+  ? process.env.LOCAL_REDIRECT_URL
+  : process.env.PRODUCTION_REDIRECT_URL;
+const DOMAIN_FOR_COOKIES = envIsDev ? 'localhost' : process.env.DOMAIN_FOR_COOKIES;
 
 app.use(morgan('combined'));
 app.use('/', partials());
@@ -56,10 +65,9 @@ passport.deserializeUser((obj, done) => {
 passport.use(
   new GitHubStrategy(
     {
-      clientID: process.env.GITHUB_CLIENT_ID,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET,
-      callbackURL:
-        process.env.NODE_ENV === 'development' ? LOCAL_CALLBACK_URL : PRODUCTION_CALLBACK_URL,
+      clientID: GITHUB_CLIENT_ID,
+      clientSecret: GITHUB_CLIENT_SECRET,
+      callbackURL: `${API_BASE_URL}/auth/github/callback`,
     },
     (accessToken, refreshToken, profile, done) => {
       process.env.TKN = accessToken;
@@ -80,29 +88,25 @@ app.get(
   (req, res) => {
     res.cookie('githubUserName', req.session.passport.user._json.login, {
       httpOnly: false,
-      domain: process.env.DOMAIN_FOR_COOKIES || 'localhost',
+      domain: DOMAIN_FOR_COOKIES,
     });
     res.cookie('githubAccessToken', process.env.TKN, {
       httpOnly: false,
-      domain: process.env.DOMAIN_FOR_COOKIES || 'localhost',
+      domain: DOMAIN_FOR_COOKIES,
     });
-    res.redirect(
-      process.env.NODE_ENV === 'development' ? LOCAL_REDIRECT_URL : PRODUCTION_REDIRECT_URL,
-    );
+    res.redirect(REDIRECT_URL);
   },
 );
 
-// Proof of Concept with server-side logout route however:
-// handling this client side allows for app state to be managed on the clien-side.gs
-//  which prevents a page redirect on logout, delivering a better UX
-
+// NOTE: Logout is handled on the client side, preventing page redirect on logout, for better UX
 // app.get('/logout', (req, res) => {
-//   res.clearCookie('githubAccessToken', { domain: process.env.DOMAIN_FOR_COOKIES || 'localhost' });
-//   res.clearCookie('githubUserName', { domain: process.env.DOMAIN_FOR_COOKIES || 'localhost' });
-//   res.redirect(process.env.NODE_ENV === 'development' ? LOCAL_REDIRECT_URL : PRODUCTION_REDIRECT_URL);
+//   res.clearCookie('githubAccessToken', { domain: DOMAIN_FOR_COOKIES });
+//   res.clearCookie('githubUserName', { domain: DOMAIN_FOR_COOKIES });
+//   res.redirect(REDIRECT_URL);
 // });
+
 app.use('/', (req, res) => {
-  res.status(200).send('We Good');
+  res.status(200).send('Github API appears to be working fine.');
 });
 
 app.use((req, res) => {
