@@ -3,4 +3,6 @@
 # This script is intended to be run from the HOST
 # environment, and therefore uses `docker-compose exec`
 
-docker-compose exec api ./node_modules/mocha/bin/mocha test 
+# Container needs to be up in order for tests to be run
+
+docker-compose exec api ./node_modules/mocha/bin/mocha test
